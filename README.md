@@ -185,6 +185,13 @@ A failed teardown keeps the checkout unless Git removal already finished. If
 that failure and the branch is preserved if Git refused deletion. Removal is
 never automatically retried after the checkout has gone.
 
+## Versions and releases
+
+Semantic Versioning; see `CHANGELOG.md`. To release `X.Y.Z`: update
+`"version"` in `package.json` and add a `CHANGELOG.md` section, commit
+`chore: release X.Y.Z`, tag it `git tag -a vX.Y.Z -m "X.Y.Z"`, push the branch and
+the tag, then `gh release create vX.Y.Z` with that changelog section as notes.
+
 ## Development
 
 ```sh
