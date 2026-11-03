@@ -4,10 +4,11 @@ Worktree setup and teardown with native progress in **Herdr app 0.1.12**.
 This is a standalone Git repository, separate from the legacy Herdr daemon
 fork and `herdr-plugin-worktree-bootstrap`.
 
-It reuses the locally modified plugin's Python engine for ignored-file copying,
-versioned lifecycle configuration, argv execution, timeouts and branch safety.
-Personal copies of the app's native mods provide the interface. No Rust rebuild
-or legacy Herdr plugin installation is required.
+It needs nothing besides what Herdr itself needs: the interface is JavaScript
+mods (Herdr's own mod language), and setup/teardown jobs run in a small POSIX
+`sh` worker that uses Git. No Python, Node, Rust rebuild or legacy Herdr plugin.
+The copy, lifecycle and branch-safety rules are ported from the locally modified
+`herdr-plugin-worktree-bootstrap` plugin.
 
 ## What it does
 
@@ -26,12 +27,20 @@ or legacy Herdr plugin installation is required.
   its exact name. Protected branches, branches in another worktree and changed
   branch heads remain protected. Safe deletion never escalates to force.
 - Keep private hook logs, report failures and let a failed setup be retried.
+- Edit a repository's scripts from Herdr: right-click a repository's **main
+  checkout** in the sidebar, then **Worktree scripts…**. The dialog lists the
+  commands run when a worktree is created, before it is removed and after it is
+  removed, plus the files to copy. **Save** writes `.herdr/worktree-setup.json`
+  and `.herdr/worktree-copy.list` in the main checkout (only what changed, and
+  never over a file edited elsewhere since the dialog opened). Commands are typed
+  like in a terminal but stored and run as argv, never through a shell: use
+  `sh -c '…'` for pipes or variables. The entry is not offered on linked worktrees.
 
 ## Requirements
 
-- Herdr app 0.1.12, herdr-core (`hc`), Git and Python 3.9+.
-- macOS or Linux for the Python runtime (the inherited engine uses POSIX locks
-  and process groups). Windows is not claimed as supported.
+- Herdr app 0.1.12, herdr-core (`hc`) and Git.
+- macOS or Linux (the worker is POSIX `sh`: bash, dash, zsh-as-sh and BusyBox
+  ash style shells). Windows is not claimed as supported.
 - The app's **main** layout, or another layout with an active-tab block.
 
 ## Install
@@ -39,14 +48,19 @@ or legacy Herdr plugin installation is required.
 From this repository:
 
 ```sh
-python3 tools/install.py --activate
+sh tools/install.sh --activate
 ```
 
-This installs only personal copies under `~/.config/herdr-app/mods/`, the runner
-under `data/worktree-bootstrap/runtime/`, and a `worktree-bootstrap` layout.
-The installer runs `herdr-app check` on every mod. It refuses collisions and
-independently edited personal files. Re-running it updates only files installed
-by this repository that have not been independently edited.
+This installs only personal copies under `~/.config/herdr-app/mods/` and a
+`worktree-bootstrap` layout (`mods/` and `layouts/` here are also laid out like a
+herdr.dev share, so they can be copied by hand). The installer runs
+`herdr-app check` on every mod. It refuses collisions and independently edited
+personal files. Re-running it updates only files it installed that have not been
+edited since, and removes the former Python runtime if it was left unedited.
+
+The mod writes its worker to `data/worktree-bootstrap/runtime/worker.sh` the
+first time it needs it, and rewrites it whenever the installed mod carries a
+different version. There is no separate runtime to install.
 
 The mod runs configured project programs and reads `.herdr` configuration and
 listed local files outside its own folder. Review those commands as you would
@@ -58,11 +72,9 @@ Return to the original interface at any time:
 herdr-app do layout.switch '{"name":"main"}'
 ```
 
-Other app homes and layout copies are supported:
-
-```sh
-python3 tools/install.py --app-home /path/to/app-home --source-layout main
-```
+Another app home: `sh tools/install.sh --app-home /path/to/app-home`. The
+shipped layout is built from Herdr's `main` layout; to start from another one,
+change `vendor/app/layouts/main.json` and run `node tools/build.mjs`.
 
 Use this layout's **New worktree**, **Open worktree** and **Remove worktree**
 menus. Direct `git worktree` commands and the unmodified shipped worktree dialog
@@ -142,15 +154,9 @@ The legacy daemon's `plugin.progress.report` endpoint is not used.
 ## SSH hosts
 
 The UI passes the space's machine to `exec` and starts the job with `hc --on`.
-Install the same runtime on that host first:
-
-```sh
-python3 tools/install.py --runtime-only "$HOME/.local/share/herdr-mod-worktree-bootstrap/runtime"
-```
-
-Remote Python/Git and lifecycle programs must already be installed. The app
-refuses a missing runtime rather than executing a local command for a remote
-checkout. Local behavior is covered by integration tests; SSH execution has not
+The mod writes the worker to `~/.local/share/herdr-mod-worktree-bootstrap/` on
+that host by itself; Git and the lifecycle programs must already be installed
+there. Local behavior is covered by integration tests; SSH execution has not
 yet been qualified on a real remote host.
 
 ## Jobs, failures and recovery
@@ -175,17 +181,21 @@ never automatically retried after the checkout has gone.
 ## Development
 
 ```sh
-python3 -m unittest discover -s tests -v
-node --test tests/api.test.mjs
-python3 tools/install.py
+node tools/build.mjs          # regenerate mods/ and layouts/
+node --test tests/*.test.mjs  # worker (sh and dash), mod API, engine, installer
+sh tools/install.sh
 ```
 
+Development needs Node 22 for the build and tests; users don't. Sources:
+`runtime/worker.sh` (the job worker), `src/engine.js` (configuration rules,
+command-line splitting, generated job files), `src/api.js` (mod side),
+`src/setup/` and `src/scripts/` (the setup screen and scripts editor).
 `vendor/app/` is the native UI baseline copied from installed Herdr app 0.1.12.
-`tools/build_mods.py` regenerates the personal copies using that baseline and the
-integration patches. `mods/api.js` is copied into each mod so none imports code
-from another mod at runtime. Changes to the installed default app are never
+`tools/build.mjs` regenerates the personal copies from that baseline and the
+integration patches, and copies `api.js`, `engine.js` and the embedded worker
+into each mod so none imports code from another mod at runtime. Changes to the installed default app are never
 required. App upgrades may require refreshing this baseline and revalidating.
 
-The old plugin's interactive TUI configuration editors and inventory UI are not
-ported; their control files remain compatible. See `NOTICE` for provenance and
+The old plugin's inventory UI is not ported; its control files remain
+compatible, and the scripts dialog replaces its TUI configuration editors. See `NOTICE` for provenance and
 licenses. Installation does not publish or commit anything.

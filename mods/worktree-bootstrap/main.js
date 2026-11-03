@@ -5,7 +5,7 @@ import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, Scrollbar } from "gpui-base";
 import { run, props, closeOverlay, theme, spaces, panes, exec, home } from "herdr";
 
-import { prepare, allJobs, remember, pollJobs, call, openGate } from "./api.js";
+import { prepare, allJobs, pollJobs, inspect, openGate } from "./api.js";
 
 const pause = (cx, ms) => new Promise(resolve => cx.timer.after(ms, () => resolve()));
 
@@ -156,7 +156,7 @@ export default class Worktree extends View {
           this.unpushed = (await submodules(repo.top, this.on)).unpushed;
         }
         if (repo && this.opening) this.list = await checkouts(repo, this.on);
-        if (repo && !this.opening) this.details = await call("inspect", ["--target", repo.top], this.on);
+        if (repo && !this.opening) this.details = await inspect(repo.top, this.on);
         this.repo = repo;
         cx.notify();
         if (props().branch) await this.work(cx);

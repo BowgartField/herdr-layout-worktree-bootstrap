@@ -5,15 +5,11 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python: ['3.9', '3.12', '3.14']
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: python3 -m unittest discover -s tests -v
-      - run: node --test tests/api.test.mjs
+      # Ubuntu's /bin/sh is dash; macOS's is bash. The worker must run on both.
+      - run: node --test tests/*.test.mjs

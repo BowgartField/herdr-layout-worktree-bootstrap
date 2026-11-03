@@ -36,8 +36,12 @@ and `worktree-bootstrap-setup`. Select the loading child only for the job's firs
 tab; keep the sidebar and tabs outside that stack. Coordinate using `shared` /
 `setShared`, `spaces`, `panes`, `run`, `exec` and `hc`. Animate with `.spin()`.
 
-Use the original plugin's POSIX Python engine for copy eligibility, transactional
-copying, lifecycle parsing/execution and branch safeguards. Keep job metadata
+Port the original plugin's rules for copy eligibility, transactional copying,
+lifecycle parsing/execution and branch safeguards: validation in the mods'
+JavaScript, execution in a POSIX `sh` worker the mod writes to each machine, so
+nothing beyond Herdr's own requirements (sh, Git) is needed. A main checkout's
+space menu offers **Worktree scripts…**, a form that edits the hooks (name,
+command typed like in a terminal and stored as argv, timeout) and the copy list. Keep job metadata
 separate from logs and runtime paths; reject stale status revisions. Poll only
 active jobs and avoid no-op shared-state updates. See README for installation,
 configuration, progress helpers, verification and the SSH qualification limit.

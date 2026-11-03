@@ -1,9 +1,10 @@
 Worktree bootstrap mod for Herdr app
 
-The lifecycle/copy/branch-safety engine in runtime/vendor/worktree_bootstrap.py
-is derived from zerodice0/herdr-plugin-worktree-bootstrap (MIT).
-It includes the local progress-reporting modifications developed on 2026-10-20.
-See runtime/vendor/LICENSE and runtime/vendor/UPSTREAM_COMMIT.
+The lifecycle, copy and branch-safety rules in runtime/worker.sh and
+src/engine.js are ported from zerodice0/herdr-plugin-worktree-bootstrap (MIT),
+including the local progress-reporting modifications developed on 2026-10-20.
+See licenses/herdr-plugin-worktree-bootstrap.LICENSE and
+licenses/herdr-plugin-worktree-bootstrap.UPSTREAM_COMMIT.
 
 The native UI baseline in vendor/app and the corresponding personal mod copies
 are derived from herdrdev/herdr-app 0.1.12 (Apache-2.0), tag commit
