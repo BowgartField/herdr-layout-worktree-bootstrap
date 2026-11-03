@@ -1,0 +1,11 @@
+{
+  "name": "herdr-mod-worktree-bootstrap",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "python3 tools/build_mods.py",
+    "test": "node --test tests/api.test.mjs",
+    "test:python": "python3 -m unittest discover -s tests -v",
+    "install:mod": "python3 tools/install.py"
+  }
+}

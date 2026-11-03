@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.local/
+*.d.ts
+jsconfig.json
+*.error

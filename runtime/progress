@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ "$1" = plugin ] && [ "$2" = progress ] && [ "$3" = report ]; then
+  shift 3
+fi
+exec python3 "$(dirname "$0")/runner.py" progress "$@"
