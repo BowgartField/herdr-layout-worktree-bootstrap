@@ -1,4 +1,4 @@
-# Herdr worktree bootstrap mod
+# Herdr worktree bootstrap layout
 
 Worktree setup and teardown with native progress in **Herdr app 0.1.12**.
 This is a standalone Git repository, separate from the legacy Herdr daemon

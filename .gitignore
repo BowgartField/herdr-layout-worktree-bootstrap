@@ -3,3 +3,5 @@ node_modules/
 *.d.ts
 jsconfig.json
 *.error
+__pycache__/
+*.pyc
