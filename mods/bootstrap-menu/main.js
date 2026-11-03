@@ -5,7 +5,8 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { run, props, closeOverlay, openOverlay, theme, keys, terminals, spaces, panes, exec } from "herdr";
+import { run, props, closeOverlay, openOverlay, theme, keys, terminals, spaces, panes, exec, appHome } from "herdr";
+import * as fs from "fs/promises";
 
 // Where a space is now: its first terminal's live folder, else where it was made.
 function place(s) {
@@ -21,7 +22,21 @@ async function checkout(folder, on) {
   return common.stdout.trim() === `${top.stdout.trim()}/.git` ? "main" : "linked";
 }
 
-function items(p, git) {
+// Entries other mods register in data/menu-items/*.json for this kind of menu.
+async function menuExtensions(tab) {
+  const dir = `${appHome()}/data/menu-items`;
+  const names = await fs.readdir(dir).catch(() => []);
+  const out = [];
+  for (const name of names.filter((n) => n.endsWith(".json")).sort()) {
+    try {
+      const spec = JSON.parse(await fs.readFile(`${dir}/${name}`, "utf8"));
+      for (const x of spec?.[tab] ?? []) if (x?.label && x?.mod) out.push(x);
+    } catch { /* a broken extension file is skipped */ }
+  }
+  return out;
+}
+
+function items(p, git, extra = []) {
   p = p ?? {};
   const tg = p.target ?? {};
   switch (p.tab) {
@@ -59,6 +74,7 @@ function items(p, git) {
         ...(git ? [["New worktree", "worktree", { space: tg.id, action: "new" }], ["Open worktree", "worktree", { space: tg.id, action: "open" }]] : []),
         ...(git === "main" ? [["Worktree scripts…", "worktree-scripts", { space: tg.id }]] : []),
         ...(git === "linked" ? [["Remove worktree", "worktree", { space: tg.id, action: "remove" }]] : []),
+        ...extra.map((x) => [x.label, `mod:${x.mod}`, { space: tg.id }, x]),
         ["Close", "space.close", { id: tg.id }],
       ];
     default:
@@ -95,6 +111,12 @@ export default class Menu extends View {
     const p = props();
     const space = p?.tab === "space" && spaces().find((s) => s.id === p.target?.id);
     const folder = space && place(space);
+    this.extra = [];
+    if (space)
+      cx.spawn(async (cx) => {
+        this.extra = await menuExtensions("space").catch(() => []);
+        cx.notify();
+      });
     if (folder)
       cx.spawn(async (cx) => {
         this.git = await checkout(folder, space.machine).catch(() => null);
@@ -103,17 +125,18 @@ export default class Menu extends View {
   }
 
   choose(i, cx) {
-    const it = items(props(), this.git)[i];
+    const it = items(props(), this.git, this.extra)[i];
     if (!it) return;
     closeOverlay(props()?.overlay);
-    if (it[1] === "worktree-scripts") openOverlay({ mod: "worktree-bootstrap-scripts", kind: "dialog", width: 760, height: 640, props: it[2] });
+    if (it[1].startsWith("mod:")) openOverlay({ mod: it[3].mod, kind: "dialog", width: it[3].width ?? 720, height: it[3].height ?? 560, props: it[2] });
+    else if (it[1] === "worktree-scripts") openOverlay({ mod: "worktree-bootstrap-scripts", kind: "dialog", width: 760, height: 640, props: it[2] });
     else if (it[1] === "worktree") openOverlay({ mod: "worktree-bootstrap", kind: "dialog", ...(it[2].action === "open" ? { width: 560, height: 480 } : { width: 560, height: 420 }), props: it[2] });
     else run(it[1], it[2]);
   }
 
   render(cx) {
     const t = theme();
-    const list = items(props(), this.git);
+    const list = items(props(), this.git, this.extra);
     return v_flex()
       .id("menu")
       .track_focus(this.handle)
@@ -133,7 +156,7 @@ export default class Menu extends View {
       .children(
         list.map((it, i) =>
           v_flex()
-            .when(i > 0 && (it[1].endsWith(".close") || it[1] === "app.help" || it[1] === "worktree-scripts" || (it[1] === "app.theme" && list[i - 1][1] !== "app.theme")), el => el.child(div().mx(7).my(4).h(1).bg(t.border)))
+            .when(i > 0 && (it[1].endsWith(".close") || it[1] === "app.help" || it[1] === "worktree-scripts" || (it[1].startsWith("mod:") && !list[i - 1][1].startsWith("mod:") && list[i - 1][1] !== "worktree-scripts") || (it[1] === "app.theme" && list[i - 1][1] !== "app.theme")), el => el.child(div().mx(7).my(4).h(1).bg(t.border)))
             .child(h_flex()
             .id(`mi-${i}`)
             .h(31)
@@ -146,7 +169,7 @@ export default class Menu extends View {
             .when(i === this.at, (el) => el.bg(t.selected))
             .hover((s) => s.bg(t.hover))
             .on_click((_e, cx) => this.choose(i, cx))
-            .child(svg(menuIcon(it[1])).size(14).flex_none().text_color(t.muted))
+            .child(svg(it[3]?.icon ? `mods/workspace-chrome/${it[3].icon}.svg` : menuIcon(it[1])).size(14).flex_none().text_color(t.muted))
             .child(div().flex_1().child(it[0]))
             .child(div().text_size(11).text_color(t.dim).child(shortcut(it[1], it[2])))),
         ),

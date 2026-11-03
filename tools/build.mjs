@@ -169,6 +169,40 @@ const pause = (cx, ms) => new Promise(resolve => cx.timer.after(ms, () => resolv
     else if (it[1] === "worktree")`);
   patch(menu, ': command === "worktree" ? "git-branch"', ': command === "worktree" ? "git-branch" : command === "worktree-scripts" ? "file-text"');
   patch(menu, 'it[1] === "app.help" ||', 'it[1] === "app.help" || it[1] === "worktree-scripts" ||');
+  // Other mods add space-menu entries that open their dialog, without patching this menu:
+  // data/menu-items/<name>.json = { "space": [{ label, mod, width?, height?, icon? }] }.
+  patch(menu, ', exec } from "herdr";', `, exec, appHome } from "herdr";
+import * as fs from "fs/promises";`);
+  patch(menu, "function items(p, git) {", `// Entries other mods register in data/menu-items/*.json for this kind of menu.
+async function menuExtensions(tab) {
+  const dir = \`\${appHome()}/data/menu-items\`;
+  const names = await fs.readdir(dir).catch(() => []);
+  const out = [];
+  for (const name of names.filter((n) => n.endsWith(".json")).sort()) {
+    try {
+      const spec = JSON.parse(await fs.readFile(\`\${dir}/\${name}\`, "utf8"));
+      for (const x of spec?.[tab] ?? []) if (x?.label && x?.mod) out.push(x);
+    } catch { /* a broken extension file is skipped */ }
+  }
+  return out;
+}
+
+function items(p, git, extra = []) {`);
+  patch(menu, '        ["Close", "space.close", { id: tg.id }],', `        ...extra.map((x) => [x.label, \`mod:\${x.mod}\`, { space: tg.id }, x]),
+        ["Close", "space.close", { id: tg.id }],`);
+  patch(menu, "    const folder = space && place(space);", `    const folder = space && place(space);
+    this.extra = [];
+    if (space)
+      cx.spawn(async (cx) => {
+        this.extra = await menuExtensions("space").catch(() => []);
+        cx.notify();
+      });`);
+  patch(menu, "const it = items(props(), this.git)[i];", "const it = items(props(), this.git, this.extra)[i];");
+  patch(menu, "const list = items(props(), this.git);", "const list = items(props(), this.git, this.extra);");
+  patch(menu, '    if (it[1] === "worktree-scripts")', `    if (it[1].startsWith("mod:")) openOverlay({ mod: it[3].mod, kind: "dialog", width: it[3].width ?? 720, height: it[3].height ?? 560, props: it[2] });
+    else if (it[1] === "worktree-scripts")`);
+  patch(menu, ".child(svg(menuIcon(it[1]))", ".child(svg(it[3]?.icon ? `mods/workspace-chrome/${it[3].icon}.svg` : menuIcon(it[1]))");
+  patch(menu, 'it[1] === "worktree-scripts" || (it[1] === "app.theme"', 'it[1] === "worktree-scripts" || (it[1].startsWith("mod:") && !list[i - 1][1].startsWith("mod:") && list[i - 1][1] !== "worktree-scripts") || (it[1] === "app.theme"');
 
   patch(at("mods/bootstrap-new-menu/main.js"), "width: 460, height: 280", "width: 520, height: 340");
 
