@@ -169,7 +169,7 @@ export default class Scripts extends View {
             .child(Textarea.new(this.copy).h(92).p(8).rounded(6).border(1).border_color(t.input)
               .bg(t.background).text_color(t.foreground).font_family(settings().font_family))))
         .child(div().text_size(11.5).text_color(t.dim)
-          .child("Commands run directly, not in a shell: quotes group words, and $VARS, globs and pipes stay literal. For shell syntax, use sh -c '…'.")))
+          .child("Commands run directly, not in a shell: quotes group words, and $VARS, globs and pipes stay literal (use sh -c '…' for those). A script path like ./setup.sh or bash scripts/setup.sh is relative to the repository: it is taken from the worktree, else from the main checkout.")))
       .child(div().h(1).bg(t.border))
       .child(h_flex().px(18).py(12).gap(10).items_center()
         .child(div().flex_1().min_w(0).text_size(12).text_color(t.blocked).child(this.error))

@@ -343,6 +343,46 @@ run_hook() {
     "percent=$(((HOOK_INDEX - 1) * 100 / HOOK_COUNT))"
   say "$_step"
   _where="$LABEL command $HOOK_INDEX ($_name)"
+  # The script a command runs (./setup.sh, or bash setup.sh) may be given
+  # relative to the repository: found in the hook's folder, else in the main
+  # checkout. Nothing else in argv is rewritten.
+  _script=0
+  case $1 in
+    /*) ;;
+    */*) _script=1 ;;
+    *) # An interpreter's first operand, unless it runs inline code.
+       case ${1##*/} in
+         sh|bash|dash|zsh|ksh|fish) _inline="-c" ;;
+         node|bun|deno|tsx) _inline="-e --eval -p --print" ;;
+         python|python3) _inline="-c -m" ;;
+         ruby|perl) _inline="-e -E" ;;
+         php) _inline="-r" ;;
+         *) _inline= ;;
+       esac
+       if [ -n "$_inline" ]; then
+         _n=0
+         for _a in "$@"; do
+           _n=$((_n + 1))
+           [ "$_n" -gt 1 ] || continue
+           case " $_inline - " in *" $_a "*) break ;; esac
+           case $_a in -*) ;; *) _script=$_n; break ;; esac
+         done
+       fi ;;
+  esac
+  if [ "$_script" -gt 0 ]; then
+    eval "_p=\${$_script}"
+    case $_p in
+      /*) ;;
+      *) if ! exists "$HOOK_CWD/$_p" && [ -f "$PRIMARY/$_p" ]; then
+           _i=1
+           for _a in "$@"; do
+             if [ "$_i" = "$_script" ]; then _a=$PRIMARY/$_p; fi
+             set -- "$@" "$_a"; _i=$((_i + 1))
+           done
+           shift $((_i - 1))
+         fi ;;
+    esac
+  fi
   (cd "$HOOK_CWD" && command -v "$1" >/dev/null 2>&1) || fail "$_where executable not found: $1"
   rm -f "$JOB/.timed-out"
   (cd "$HOOK_CWD" && exec "$@") </dev/null &

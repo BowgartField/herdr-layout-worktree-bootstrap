@@ -250,6 +250,32 @@ for (const shell of shells) {
     assert.equal(f.status(job).error, 'quote " back \\ tab \t\nline');
   });
 
+  t("a relative script is found in the hook's folder, else in the main checkout", (f) => {
+    // Only in the main checkout (untracked): reached from the worktree too.
+    fs.writeFileSync(path.join(f.repo, "setup.sh"), 'echo "main $(pwd -P)" > ran-main\n');
+    fs.mkdirSync(path.join(f.repo, "scripts"));
+    fs.writeFileSync(path.join(f.repo, "scripts/run.sh"), "#!/bin/sh\ntouch ran-direct\n", { mode: 0o755 });
+    // Tracked: the worktree's own copy wins.
+    fs.writeFileSync(path.join(f.repo, "tracked.sh"), "touch ran-tracked-main\n");
+    f.git(f.repo, "add", "tracked.sh"); f.git(f.repo, "commit", "-q", "-m", "script");
+    fs.writeFileSync(path.join(f.repo, "tracked.sh"), "touch ran-from-main-copy\n");
+    f.hooks = {
+      on_created: [
+        { name: "Interpreter", argv: ["sh", "-e", "setup.sh"], timeout_seconds: 10 },
+        { name: "Direct", argv: ["scripts/run.sh"], timeout_seconds: 10 },
+        { name: "Tracked", argv: ["sh", "tracked.sh"], timeout_seconds: 10 },
+        { name: "Inline", argv: ["sh", "-c", "test ! -e setup.sh && touch inline-ok", "setup.sh"], timeout_seconds: 10 },
+      ],
+      before_remove: [{ name: "Teardown", argv: ["bash", "setup.sh"], timeout_seconds: 10 }],
+    };
+    f.create();
+    assert.equal(fs.readFileSync(path.join(f.target, "ran-main"), "utf8").trim(), `main ${f.target}`);
+    for (const file of ["ran-direct", "ran-tracked-main", "inline-ok"]) assert.ok(fs.existsSync(path.join(f.target, file)), file);
+    assert.ok(!fs.existsSync(path.join(f.target, "ran-from-main-copy")));
+    const job = f.prepare({ action: "remove", force: true });
+    assert.equal(f.run(job).status, 0, f.log(job));
+  });
+
   t("an existing branch is checked out instead of created", (f) => {
     f.git(f.repo, "branch", "feature/demo");
     f.create();

@@ -106,6 +106,13 @@ The primary checkout remains the source of configuration:
 }
 ```
 
+A script can be named relative to the repository, whatever the phase's folder:
+in `["bash", "worktree-setup.sh"]` or `["./scripts/setup.sh"]`, the script is
+taken from the hook's folder (the worktree, or the main checkout for
+`after_remove`), else from the main checkout. Only the program, or an
+interpreter's script operand (`sh`, `bash`, `node`, `python3`, …, not after
+`-c`/`-e`), is resolved this way; other arguments are passed unchanged.
+
 Version 1 `commands` files also work. Commands execute as argv arrays, without
 shell interpolation. As in the plugin, `before_remove` and `after_remove` receive
 `HERDR_WORKTREE_PATH`, `HERDR_PRIMARY_PATH`, `HERDR_WORKTREE_BRANCH`,
